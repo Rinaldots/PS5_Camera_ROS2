@@ -1,12 +1,9 @@
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, GroupAction, IncludeLaunchDescription, SetLaunchConfiguration
-from launch.conditions import IfCondition, LaunchConfigurationEquals, LaunchConfigurationNotEquals
-from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.actions import DeclareLaunchArgument
+from launch.conditions import LaunchConfigurationEquals, LaunchConfigurationNotEquals
 from launch.substitutions import LaunchConfiguration, PythonExpression
-from launch_ros.actions import ComposableNodeContainer, LoadComposableNodes, PushRosNamespace
+from launch_ros.actions import ComposableNodeContainer, LoadComposableNodes
 from launch_ros.descriptions import ComposableNode
-from launch_ros.substitutions import FindPackageShare
-
 
 def generate_launch_description():
     composable_nodes = [
@@ -54,97 +51,92 @@ def generate_launch_description():
                 ('right/image_rect_color', [LaunchConfiguration('right_namespace'), '/image_rect_color']),
             ]
         ),
-        
     ]
 
     return LaunchDescription([
         DeclareLaunchArgument(
             name='approximate_sync', default_value='True',
-            description='Melhor tolerância a variações de tempo.'
+            description='Better tolerance for time variations.'
         ),
         DeclareLaunchArgument(
             name='avoid_point_cloud_padding', default_value='True',
-            description='Evitar preenchimento de alinhamento na nuvem de pontos gerada.'
+            description='Avoid padding alignment in the generated point cloud.'
         ),
         DeclareLaunchArgument(
             name='use_color', default_value='True',
-            description='Gerar nuvem de pontos com dados RGB.'
-        ),
-        DeclareLaunchArgument(
-            name='launch_image_proc', default_value='True',
-            description='Se deve lançar os nós de debayer e retificação do image_proc.'
+            description='Generate point cloud with RGB data.'
         ),
         DeclareLaunchArgument(
             name='namespace', default_value='',
-            description='Namespace para todos os componentes carregados.'
+            description='Namespace for all loaded components.'
         ),
         DeclareLaunchArgument(
             name='left_namespace', default_value='left',
-            description='Namespace para a câmera esquerda.'
+            description='Namespace for the left camera.'
         ),
         DeclareLaunchArgument(
             name='right_namespace', default_value='right',
-            description='Namespace para a câmera direita.'
+            description='Namespace for the right camera.'
         ),
         DeclareLaunchArgument(
             name='container', default_value='',
-            description='Nome de um container de nó existente para carregar os nós lançados.'
+            description='Name of an existing node container to load launched nodes.'
         ),
         DeclareLaunchArgument(
             name='stereo_algorithm', default_value='1',
-            description='Algoritmo estéreo: Block Matching (0) ou Semi-Global Block Matching (1).'
+            description='Stereo algorithm: Block Matching (0) or Semi-Global Block Matching (1).'
         ),
         DeclareLaunchArgument(
             name='prefilter_size', default_value='9',
-            description='Tamanho da janela de normalização em pixels (deve ser ímpar).'
+            description='Normalization window size in pixels (must be odd).'
         ),
         DeclareLaunchArgument(
             name='prefilter_cap', default_value='31',
-            description='Limite nos valores de pixel normalizados.'
+            description='Cap on normalized pixel values.'
         ),
         DeclareLaunchArgument(
             name='correlation_window_size', default_value='5',
-            description='Largura da janela de correlação SAD em pixels (deve ser ímpar).'
+            description='Width of the SAD correlation window in pixels (must be odd).'
         ),
         DeclareLaunchArgument(
             name='min_disparity', default_value='0',
-            description='Disparidade para iniciar a busca em pixels.'
+            description='Disparity to start the search in pixels.'
         ),
         DeclareLaunchArgument(
             name='disparity_range', default_value='128',
-            description='Número de disparidades para buscar em pixels (deve ser múltiplo de 16).'
+            description='Number of disparities to search in pixels (must be a multiple of 16).'
         ),
         DeclareLaunchArgument(
             name='texture_threshold', default_value='10',
-            description='Filtrar se a resposta da janela SAD não exceder o limite de textura.'
+            description='Filter if the SAD window response does not exceed the texture threshold.'
         ),
         DeclareLaunchArgument(
             name='speckle_size', default_value='200',
-            description='Rejeitar regiões menores que este tamanho em pixels.'
+            description='Reject regions smaller than this size in pixels.'
         ),
         DeclareLaunchArgument(
             name='speckle_range', default_value='2',
-            description='Diferença máxima permitida entre disparidades detectadas.'
+            description='Maximum allowed difference between detected disparities.'
         ),
         DeclareLaunchArgument(
             name='disp12_max_diff', default_value='1',
-            description='Diferença máxima permitida na verificação de disparidade esquerda-direita em pixels.'
+            description='Maximum allowed difference in left-right disparity check in pixels.'
         ),
         DeclareLaunchArgument(
             name='uniqueness_ratio', default_value='12.0',
-            description='Filtrar se a melhor correspondência não exceder suficientemente a próxima melhor correspondência.'
+            description='Filter if the best match does not sufficiently exceed the next best match.'
         ),
         DeclareLaunchArgument(
             name='P1', default_value='1176.0',
-            description='O primeiro parâmetro que controla a suavidade da disparidade.'
+            description='First parameter controlling disparity smoothness.'
         ),
         DeclareLaunchArgument(
             name='P2', default_value='2400.0',
-            description='O segundo parâmetro que controla a suavidade da disparidade.'
+            description='Second parameter controlling disparity smoothness.'
         ),
         DeclareLaunchArgument(
             name='sgbm_mode', default_value='1',
-            description='O modo do matcher SGBM a ser usado.'
+            description='SGBM matcher mode to use.'
         ),
         ComposableNodeContainer(
             condition=LaunchConfigurationEquals('container', ''),
@@ -158,43 +150,5 @@ def generate_launch_description():
             condition=LaunchConfigurationNotEquals('container', ''),
             composable_node_descriptions=composable_nodes,
             target_container=LaunchConfiguration('container'),
-        ),
-        SetLaunchConfiguration(
-            condition=LaunchConfigurationEquals('container', ''),
-            name='container',
-            value=PythonExpression([
-                '"stereo_image_proc_container"', ' if ',
-                '"', LaunchConfiguration('namespace', default=''), '"',
-                ' == "" else ', '"',
-                LaunchConfiguration('namespace', default=''), '/stereo_image_proc_container"'
-            ]),
-        ),
-        GroupAction(
-            [
-                PushRosNamespace(LaunchConfiguration('namespace')),
-                IncludeLaunchDescription(
-                    PythonLaunchDescriptionSource([
-                        FindPackageShare('image_proc'), '/launch/image_proc.launch.py'
-                    ]),
-                    launch_arguments={'container': LaunchConfiguration('container'),
-                                      'namespace': LaunchConfiguration('left_namespace'),
-                                      'approximate_sync': LaunchConfiguration('approximate_sync')}.items()
-                ),
-            ],
-            condition=IfCondition(LaunchConfiguration('launch_image_proc')),
-        ),
-        GroupAction(
-            [
-                PushRosNamespace(LaunchConfiguration('namespace')),
-                IncludeLaunchDescription(
-                    PythonLaunchDescriptionSource([
-                        FindPackageShare('image_proc'), '/launch/image_proc.launch.py'
-                    ]),
-                    launch_arguments={'container': LaunchConfiguration('container'),
-                                      'namespace': LaunchConfiguration('right_namespace'),
-                                      'approximate_sync': LaunchConfiguration('approximate_sync')}.items()
-                ),
-            ],
-            condition=IfCondition(LaunchConfiguration('launch_image_proc')),
         ),
     ])

@@ -9,6 +9,10 @@ def generate_launch_description():
             executable='ps5_pub',
             name='ps5_publisher_node',
             output='screen',
+            parameters=[
+                {'video_source': '0'},  # Default to camera index 0
+                {'resolution_scale': 640 / 2560}  # Scale to 640p
+            ]
         ),
 
     ])
