@@ -184,14 +184,25 @@ private:
         if (result == 0) {  // Camera found without firmware
             RCLCPP_INFO(this->get_logger(), "PS5 camera found without firmware. Loading firmware...");
             
+            // Get home directory properly
+            const char* home = std::getenv("HOME");
+            if (!home) {
+                RCLCPP_ERROR(this->get_logger(), "Could not get HOME environment variable");
+                return false;
+            }
+            std::string home_path = home;
+            
             // Try common paths for the firmware loader
             std::vector<std::string> possible_paths = {
-                "~/PS5-Camera-Firmware-Loader/cpp/ps5_camera_firmware_loader",
+                home_path + "/PS5-Camera-Firmware-Loader/cpp/ps5_camera_firmware_loader",
+                "/usr/local/bin/ps5_camera_firmware_loader",
+                "./ps5_camera_firmware_loader"
             };
             
             std::vector<std::string> possible_firmware = {
-                "~/PS5-Camera-Firmware-Loader/cpp/firmware.bin",
-                "~/PS5-Camera-Firmware-Loader/cpp/firmware_discord_and_gamma_fix.bin",
+                home_path + "/PS5-Camera-Firmware-Loader/cpp/firmware.bin",
+                home_path + "/PS5-Camera-Firmware-Loader/cpp/firmware_discord_and_gamma_fix.bin",
+                "./firmware.bin"
             };
             
             for (const auto& loader_path : possible_paths) {
@@ -271,11 +282,17 @@ private:
 };
 
 int main(int argc, char **argv) {
-    rclcpp::init(argc, argv);
-    auto node = std::make_shared<PS5PublisherNode>();
-    if (rclcpp::ok()) {
-        rclcpp::spin(node);
+    try {
+        rclcpp::init(argc, argv);
+        auto node = std::make_shared<PS5PublisherNode>();
+        if (rclcpp::ok()) {
+            rclcpp::spin(node);
+        }
+        rclcpp::shutdown();
+    } catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+        rclcpp::shutdown();
+        return -1;
     }
-    rclcpp::shutdown();
     return 0;
 }
