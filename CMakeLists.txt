@@ -12,10 +12,12 @@ find_package(sensor_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(yaml-cpp REQUIRED)
+find_package(image_transport REQUIRED)
+
 
 # Adicionar executável ps5_pub
 add_executable(ps5_pub src/ps5_pub.cpp)
-ament_target_dependencies(ps5_pub rclcpp sensor_msgs cv_bridge OpenCV yaml-cpp)
+ament_target_dependencies(ps5_pub rclcpp sensor_msgs cv_bridge OpenCV yaml-cpp image_transport)
 
 # Adicionar executável disparity_to_rviz
 

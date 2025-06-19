@@ -4,20 +4,34 @@
 #include <opencv2/opencv.hpp>
 #include <cv_bridge/cv_bridge.h>
 #include <yaml-cpp/yaml.h>
+#include <image_transport/image_transport.hpp>
 #include <array>
 #include <string>
+#include <fstream>
+#include <filesystem>
 
 
 class PS5PublisherNode : public rclcpp::Node {
 public:
     PS5PublisherNode()
-        : Node("ps5_publisher_node"), video_(2), frame_count_(0), log_interval_(5) {
+        : Node("ps5_publisher_node"), log_interval_(5) {
 
-        publisher_left_ = this->create_publisher<sensor_msgs::msg::Image>("left/image_raw", 10);
-        publisher_right_ = this->create_publisher<sensor_msgs::msg::Image>("right/image_raw", 10);
-        camera_info_left_ = this->create_publisher<sensor_msgs::msg::CameraInfo>("left/camera_info", 10);
-        camera_info_right_ = this->create_publisher<sensor_msgs::msg::CameraInfo>("right/camera_info", 10);
+        rclcpp::QoS qos_profile(rclcpp::KeepLast(10));
 
+        // Detecta automaticamente a câmera PS5
+        int camera_index = detectPS5Camera();
+        if (camera_index == -1) {
+            RCLCPP_ERROR(this->get_logger(), "PS5 camera not found!");
+            rclcpp::shutdown();
+            return;
+        }
+
+        video_.open(camera_index);
+        RCLCPP_INFO(this->get_logger(), "PS5 camera detected at index %d", camera_index);
+
+        // Usa image_transport::create_camera_publisher
+        camera_pub_left_ = image_transport::create_camera_publisher(this, "left/image_raw", qos_profile.get_rmw_qos_profile());
+        camera_pub_right_ = image_transport::create_camera_publisher(this, "right/image_raw", qos_profile.get_rmw_qos_profile());
         timer_ = this->create_wall_timer(
             std::chrono::milliseconds(33),  // ~30 FPS
             std::bind(&PS5PublisherNode::timerCallback, this));
@@ -59,18 +73,13 @@ private:
         msg_left->header.frame_id = "left_camera";
         msg_right->header.stamp = timestamp;
         msg_right->header.frame_id = "right_camera";
-
-        publisher_left_->publish(*msg_left);
-        publisher_right_->publish(*msg_right);
-
-        // Atualiza CameraInfo e publica
         left_camera_info_.header.stamp = timestamp;
         right_camera_info_.header.stamp = timestamp;
 
-        camera_info_left_->publish(left_camera_info_);
-        camera_info_right_->publish(right_camera_info_);
-
-        frame_count_++;
+        // Publica imagem e camera_info usando CameraPublisher
+        // O CameraPublisher irá definir o timestamp do CameraInfo para corresponder ao da imagem.
+        camera_pub_left_.publish(*msg_left, left_camera_info_);
+        camera_pub_right_.publish(*msg_right, right_camera_info_);
     }
 
     void loadCalibrationData() {
@@ -122,15 +131,78 @@ private:
         std::copy(vec.begin(), vec.end(), arr.begin());
     }
 
+    int detectPS5Camera() {
+        const std::string PS5_VENDOR_ID = "05a9";
+        const std::string PS5_PRODUCT_ID_INITIAL = "0580";  // Before firmware
+        const std::string PS5_PRODUCT_ID_LOADED = "058c";   // After firmware
+        
+        RCLCPP_INFO(this->get_logger(), "Searching for PS5 camera...");
+        
+        for (int i = 0; i < 10; ++i) {
+            // First check if it's a PS5 camera by USB ID
+            if (isPS5Camera(i, PS5_VENDOR_ID, PS5_PRODUCT_ID_INITIAL) || 
+                isPS5Camera(i, PS5_VENDOR_ID, PS5_PRODUCT_ID_LOADED)) {
+                
+                // Try to open the camera to verify it's accessible
+                cv::VideoCapture test_cap(i);
+                if (test_cap.isOpened()) {
+                    test_cap.release();
+                    RCLCPP_INFO(this->get_logger(), "Found PS5 camera at video%d", i);
+                    return i;
+                } else {
+                    RCLCPP_WARN(this->get_logger(), "PS5 camera found at video%d but cannot be opened", i);
+                }
+            }
+        }
+        
+        RCLCPP_ERROR(this->get_logger(), "PS5 camera not found. Make sure firmware is loaded.");
+        return -1;
+    }
 
-    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr publisher_left_;
-    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr publisher_right_;
-    rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_left_;
-    rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_right_;
+    bool isPS5Camera(int index, const std::string& vendor_id, const std::string& product_id) {
+        std::string device_path = "/sys/class/video4linux/video" + std::to_string(index) + "/device";
+        
+        if (!std::filesystem::exists(device_path)) {
+            return false;
+        }
+        
+        try {
+            // Navega até o dispositivo USB
+            std::filesystem::path usb_device_path = std::filesystem::canonical(device_path);
+            
+            // Procura pelo diretório USB que contém idVendor e idProduct
+            while (usb_device_path != usb_device_path.root_path()) {
+                std::filesystem::path vendor_file = usb_device_path / "idVendor";
+                std::filesystem::path product_file = usb_device_path / "idProduct";
+                
+                if (std::filesystem::exists(vendor_file) && std::filesystem::exists(product_file)) {
+                    std::ifstream vendor_stream(vendor_file);
+                    std::ifstream product_stream(product_file);
+                    
+                    std::string device_vendor, device_product;
+                    if (vendor_stream >> device_vendor && product_stream >> device_product) {
+                        RCLCPP_DEBUG(this->get_logger(), "video%d: vendor=%s, product=%s", 
+                                   index, device_vendor.c_str(), device_product.c_str());
+                        
+                        if (device_vendor == vendor_id && device_product == product_id) {
+                            return true;
+                        }
+                    }
+                    break;
+                }
+                usb_device_path = usb_device_path.parent_path();
+            }
+        } catch (const std::exception& e) {
+            RCLCPP_DEBUG(this->get_logger(), "Error checking device %d: %s", index, e.what());
+        }
+        
+        return false;
+    }
 
+    image_transport::CameraPublisher camera_pub_left_;
+    image_transport::CameraPublisher camera_pub_right_;
     rclcpp::TimerBase::SharedPtr timer_;
     cv::VideoCapture video_;
-    int frame_count_;
     const int log_interval_;
 
     sensor_msgs::msg::CameraInfo left_camera_info_;

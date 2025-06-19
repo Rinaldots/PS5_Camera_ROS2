@@ -96,7 +96,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             name='prefilter_size', default_value='9',
-            description='Tamanho da janela de normalização em pixels (deve ser ímpar).'
+            description='Tamanho da janela de normalização para BM (stereo_algorithm=0) em pixels (deve ser ímpar).'
         ),
         DeclareLaunchArgument(
             name='prefilter_cap', default_value='31',
@@ -104,7 +104,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             name='correlation_window_size', default_value='5',
-            description='Largura da janela de correlação SAD em pixels (deve ser ímpar).'
+            description='Tamanho do bloco de correspondência (SAD window para BM, blockSize para SGBM, deve ser ímpar).'
         ),
         DeclareLaunchArgument(
             name='min_disparity', default_value='0',
@@ -116,7 +116,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             name='texture_threshold', default_value='10',
-            description='Filtrar se a resposta da janela SAD não exceder o limite de textura.'
+            description='Limite de textura para BM (stereo_algorithm=0). Regiões com textura abaixo são filtradas.'
         ),
         DeclareLaunchArgument(
             name='speckle_size', default_value='200',
@@ -124,7 +124,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             name='speckle_range', default_value='2',
-            description='Diferença máxima permitida entre disparidades detectadas.'
+            description='Diferença máxima permitida entre disparidades detectadas para considerá-las parte da mesma região (filtragem de speckle).'
         ),
         DeclareLaunchArgument(
             name='disp12_max_diff', default_value='1',
@@ -132,15 +132,15 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             name='uniqueness_ratio', default_value='12.0',
-            description='Filtrar se a melhor correspondência não exceder suficientemente a próxima melhor correspondência.'
+            description='Filtrar se a melhor correspondência (menor custo) não for suficientemente melhor que a segunda melhor. (Ex: (cost2-cost1)/cost1 > uniqueness_ratio/100)'
         ),
         DeclareLaunchArgument(
-            name='P1', default_value='1176.0',
-            description='O primeiro parâmetro que controla a suavidade da disparidade.'
+            name='P1', default_value='200.0', # Anteriormente 1176.0
+            description='Parâmetro P1 do SGBM (controla suavidade). Típico: 8*canais*blockSize^2. Aumentar para mais suavidade.'
         ),
         DeclareLaunchArgument(
-            name='P2', default_value='2400.0',
-            description='O segundo parâmetro que controla a suavidade da disparidade.'
+            name='P2', default_value='800.0', # Anteriormente 2400.0
+            description='Parâmetro P2 do SGBM (controla suavidade). Típico: 32*canais*blockSize^2. Aumentar para mais suavidade. Deve ser > P1.'
         ),
         DeclareLaunchArgument(
             name='sgbm_mode', default_value='1',
