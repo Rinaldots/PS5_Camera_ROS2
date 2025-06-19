@@ -36,13 +36,14 @@ public:
         camera_pub_left_ = image_transport::create_camera_publisher(this, "left/image_raw", qos_profile.get_rmw_qos_profile());
         camera_pub_right_ = image_transport::create_camera_publisher(this, "right/image_raw", qos_profile.get_rmw_qos_profile());
         timer_ = this->create_wall_timer(
-            std::chrono::milliseconds(66),  // ~30 FPS
+            std::chrono::milliseconds(200),  // 5 FPS instead of 15
             std::bind(&PS5PublisherNode::timerCallback, this));
 
-        // Configura câmera
-        video_.set(cv::CAP_PROP_FRAME_WIDTH, 2560);
-        video_.set(cv::CAP_PROP_FRAME_HEIGHT, 800);
-        video_.set(cv::CAP_PROP_FPS, 15);
+        // Configura câmera com resolução menor
+        video_.set(cv::CAP_PROP_FRAME_WIDTH, 1280);  // Reduced from 2560
+        video_.set(cv::CAP_PROP_FRAME_HEIGHT, 400);  // Reduced from 800
+        video_.set(cv::CAP_PROP_FPS, 5);             // Reduced from 15
+        video_.set(cv::CAP_PROP_BUFFERSIZE, 1);      // Reduce buffer to avoid lag
 
         if (!video_.isOpened()) {
             RCLCPP_ERROR(this->get_logger(), "Failed to open video source.");
@@ -51,16 +52,26 @@ public:
 
         loadCalibrationData();
 
-        RCLCPP_INFO(this->get_logger(), "PS5PublisherNode initialized with 15 FPS target.");
+        RCLCPP_INFO(this->get_logger(), "PS5PublisherNode initialized with 5 FPS target and reduced resolution.");
     }
 
 private:
     void timerCallback() {
         cv::Mat frame;
         if (!video_.read(frame)) {
-            RCLCPP_WARN(this->get_logger(), "Failed to read frame from video source.");
+            RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Failed to read frame from video source.");
             return;
         }
+
+        // Skip frame processing if system is overloaded
+        static auto last_process_time = std::chrono::steady_clock::now();
+        auto now = std::chrono::steady_clock::now();
+        auto time_since_last = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_process_time);
+        
+        if (time_since_last.count() < 180) {  // Skip if less than 180ms since last frame
+            return;
+        }
+        last_process_time = now;
 
         rclcpp::Time timestamp = this->get_clock()->now();
         int mid_width = frame.cols / 2;
@@ -68,9 +79,14 @@ private:
         cv::Mat left_frame = frame(cv::Range::all(), cv::Range(0, mid_width));
         cv::Mat right_frame = frame(cv::Range::all(), cv::Range(mid_width, frame.cols));
 
+        // Resize frames to reduce bandwidth (optional)
+        cv::Mat left_resized, right_resized;
+        cv::resize(left_frame, left_resized, cv::Size(320, 200));  // Further reduce for Orange Pi
+        cv::resize(right_frame, right_resized, cv::Size(320, 200));
+
         // Cria mensagens de imagem
-        auto msg_left = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", left_frame).toImageMsg();
-        auto msg_right = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", right_frame).toImageMsg();
+        auto msg_left = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", left_resized).toImageMsg();
+        auto msg_right = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", right_resized).toImageMsg();
 
         msg_left->header.stamp = timestamp;
         msg_left->header.frame_id = "left_camera";
