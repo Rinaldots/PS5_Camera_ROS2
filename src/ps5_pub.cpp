@@ -187,14 +187,11 @@ private:
             // Try common paths for the firmware loader
             std::vector<std::string> possible_paths = {
                 "~/PS5-Camera-Firmware-Loader/cpp/ps5_camera_firmware_loader",
-                "./ps5_camera_firmware_loader",
-                "ps5_camera_firmware_loader"
             };
             
             std::vector<std::string> possible_firmware = {
                 "~/PS5-Camera-Firmware-Loader/cpp/firmware.bin",
-                "./firmware.bin",
-                "firmware.bin"
+                "~/PS5-Camera-Firmware-Loader/cpp/firmware_discord_and_gamma_fix.bin",
             };
             
             for (const auto& loader_path : possible_paths) {
