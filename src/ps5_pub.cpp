@@ -36,13 +36,13 @@ public:
         camera_pub_left_ = image_transport::create_camera_publisher(this, "left/image_raw", qos_profile.get_rmw_qos_profile());
         camera_pub_right_ = image_transport::create_camera_publisher(this, "right/image_raw", qos_profile.get_rmw_qos_profile());
         timer_ = this->create_wall_timer(
-            std::chrono::milliseconds(33),  // ~30 FPS
+            std::chrono::milliseconds(66),  // ~30 FPS
             std::bind(&PS5PublisherNode::timerCallback, this));
 
         // Configura câmera
         video_.set(cv::CAP_PROP_FRAME_WIDTH, 2560);
         video_.set(cv::CAP_PROP_FRAME_HEIGHT, 800);
-        video_.set(cv::CAP_PROP_FPS, 30);
+        video_.set(cv::CAP_PROP_FPS, 15);
 
         if (!video_.isOpened()) {
             RCLCPP_ERROR(this->get_logger(), "Failed to open video source.");
