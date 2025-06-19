@@ -36,13 +36,13 @@ public:
         camera_pub_left_ = image_transport::create_camera_publisher(this, "left/image_raw", qos_profile.get_rmw_qos_profile());
         camera_pub_right_ = image_transport::create_camera_publisher(this, "right/image_raw", qos_profile.get_rmw_qos_profile());
         timer_ = this->create_wall_timer(
-            std::chrono::milliseconds(200),  // 5 FPS instead of 15
+            std::chrono::milliseconds(66), 
             std::bind(&PS5PublisherNode::timerCallback, this));
 
         // Configura câmera com resolução menor
         video_.set(cv::CAP_PROP_FRAME_WIDTH, 1280);  // Reduced from 2560
         video_.set(cv::CAP_PROP_FRAME_HEIGHT, 400);  // Reduced from 800
-        video_.set(cv::CAP_PROP_FPS, 5);             // Reduced from 15
+        video_.set(cv::CAP_PROP_FPS, 15);             // Reduced from 15
         video_.set(cv::CAP_PROP_BUFFERSIZE, 1);      // Reduce buffer to avoid lag
 
         if (!video_.isOpened()) {
@@ -52,7 +52,7 @@ public:
 
         loadCalibrationData();
 
-        RCLCPP_INFO(this->get_logger(), "PS5PublisherNode initialized with 5 FPS target and reduced resolution.");
+        RCLCPP_INFO(this->get_logger(), "PS5PublisherNode initialized with 15 FPS target and reduced resolution.");
     }
 
 private:
@@ -80,13 +80,13 @@ private:
         cv::Mat right_frame = frame(cv::Range::all(), cv::Range(mid_width, frame.cols));
 
         // Resize frames to reduce bandwidth (optional)
-        cv::Mat left_resized, right_resized;
+        /*cv::Mat left_resized, right_resized;
         cv::resize(left_frame, left_resized, cv::Size(320, 200));  // Further reduce for Orange Pi
-        cv::resize(right_frame, right_resized, cv::Size(320, 200));
+        cv::resize(right_frame, right_resized, cv::Size(320, 200));*/
 
         // Cria mensagens de imagem
-        auto msg_left = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", left_resized).toImageMsg();
-        auto msg_right = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", right_resized).toImageMsg();
+        auto msg_left = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", left_frame).toImageMsg();
+        auto msg_right = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", right_frame).toImageMsg();
 
         msg_left->header.stamp = timestamp;
         msg_left->header.frame_id = "left_camera";
