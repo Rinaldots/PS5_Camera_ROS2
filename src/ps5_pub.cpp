@@ -51,7 +51,7 @@ public:
 
         loadCalibrationData();
 
-        RCLCPP_INFO(this->get_logger(), "PS5PublisherNode initialized with 30 FPS target.");
+        RCLCPP_INFO(this->get_logger(), "PS5PublisherNode initialized with 15 FPS target.");
     }
 
 private:
@@ -186,15 +186,13 @@ private:
             
             // Try common paths for the firmware loader
             std::vector<std::string> possible_paths = {
-                "/home/r1/PS5-Camera-Firmware-Loader/cpp/ps5_camera_firmware_loader",
-                "/home/orangepi/PS5-Camera-Firmware-Loader/cpp/ps5_camera_firmware_loader",
+                "~/PS5-Camera-Firmware-Loader/cpp/ps5_camera_firmware_loader",
                 "./ps5_camera_firmware_loader",
                 "ps5_camera_firmware_loader"
             };
             
             std::vector<std::string> possible_firmware = {
-                "/home/r1/PS5-Camera-Firmware-Loader/cpp/firmware.bin",
-                "/home/orangepi/PS5-Camera-Firmware-Loader/cpp/firmware.bin",
+                "~/PS5-Camera-Firmware-Loader/cpp/firmware.bin",
                 "./firmware.bin",
                 "firmware.bin"
             };
